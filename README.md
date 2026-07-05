@@ -53,7 +53,7 @@ Full field definitions with units are embedded in `data/latest.json` (`fields` s
 import pandas as pd
 
 df = pd.read_csv(
-    "https://raw.githubusercontent.com/OWNER/korea-stock-data/main/data/csv/universe_20260705.csv",
+    "https://raw.githubusercontent.com/na77tech-creator/korea-stock-data/main/data/csv/universe_20260705.csv",
     dtype={"종목코드": str},   # keep leading zeros!
 )
 cheap_growth = df[(df["선행PER"] < 8) & (df["영업이익증가율_연간"] > 30)]
