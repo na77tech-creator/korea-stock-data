@@ -15,8 +15,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Fetch latest data from site
-        run: |
-          BASE="https://wispy-truth-8d32.na4tech.workers.dev"
+        run: |       
+          BASE="https://aikstockdata.com"
           TODAY=$(TZ=Asia/Seoul date +%Y%m%d)
           mkdir -p data/csv
           curl -fsS "$BASE/data/latest.json" -o data/latest.json
