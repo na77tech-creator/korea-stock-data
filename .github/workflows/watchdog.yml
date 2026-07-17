@@ -1,0 +1,169 @@
+# 외부 파수꾼 (aikstockdata.com 개편 마스터플랜 P2-5)
+# 클라우드PC 파이프라인·Cloudflare Worker·미러 워크플로우 어디가 죽어도
+# GitHub 인프라에서 독립적으로 감지한다. 성공 시 완전 침묵, 실패 시에만 Issue(+텔레그램).
+# ※ mirror.yml(데일리 미러)과는 완전히 별개 — 서로 건드리지 않는다.
+
+name: Site watchdog
+
+on:
+  schedule:
+    # KST 10:40 / 16:40 (평일) = 10:00/16:00 수집 파이프라인 종료 40분 뒤 점검
+    # KST=UTC+9 이므로 이 시각대에선 UTC 요일 == KST 요일 (1-5 = 월-금)
+    - cron: "40 1 * * 1-5"
+    - cron: "40 7 * * 1-5"
+  workflow_dispatch:
+
+# 실패 진단 Issue 생성을 위해 기본 GITHUB_TOKEN에 issues:write 명시
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE: "https://aikstockdata.com"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1 # (c) 최신 커밋 시각만 필요
+
+      - name: Run checks
+        id: checks
+        shell: bash
+        run: |
+          set -u
+          # KST 주말이면 전체 스킵 (cron은 평일에만 돌지만 수동 실행 대비 이중 가드)
+          DOW=$(TZ=Asia/Seoul date +%u)   # 1=월 ... 7=일
+          if [ "$DOW" -ge 6 ]; then
+            echo "KST weekend - skip all checks"
+            exit 0
+          fi
+
+          TODAY_DOT=$(TZ=Asia/Seoul date +%Y.%m.%d)
+          TODAY_DASH=$(TZ=Asia/Seoul date +%Y-%m-%d)
+          FAILS=""
+          add_fail() { FAILS="${FAILS}- $1"$'\n'; }
+
+          # ---- (a) 라이브 latest.json 의 기준일 == KST 오늘 ----
+          if curl -fsS --max-time 60 --retry 2 "$BASE/data/latest.json" -o /tmp/latest.json; then
+            KIJUN=$(python3 -c "import json; print(json.load(open('/tmp/latest.json')).get('기준일',''))" 2>/dev/null || echo "PARSE_ERROR")
+            if [ "$KIJUN" = "PARSE_ERROR" ] || [ -z "$KIJUN" ]; then
+              add_fail "(a) latest.json JSON parse failed or '기준일' field missing"
+            elif [ "$KIJUN" != "$TODAY_DOT" ] && [ "$KIJUN" != "$TODAY_DASH" ]; then
+              add_fail "(a) latest.json 기준일='$KIJUN' != KST today '$TODAY_DOT' - pipeline may be dead / serving stale data (KR market holiday would be a false positive)"
+            fi
+          else
+            add_fail "(a) latest.json fetch failed: $BASE/data/latest.json"
+          fi
+
+          # ---- (b) 핵심 엔드포인트 5개 HTTP 200 ----
+          # .html 경로는 Workers Assets가 307로 확장자를 벗기므로 -L로 최종 상태를 본다
+          for u in "/" "/data/latest.json" "/ai" "/watch" "/sitemap.xml"; do
+            CODE=$(curl -sSL -o /dev/null -w "%{http_code}" --max-time 60 --retry 2 "$BASE$u" || echo "000")
+            if [ "$CODE" != "200" ]; then
+              add_fail "(b) endpoint $u -> HTTP $CODE"
+            fi
+          done
+
+          # ---- (c) 미러 최신 커밋 신선도 (mirror.yml 은 평일 17:20 KST 커밋) ----
+          LAST=$(git log -1 --format=%ct)
+          AGE_H=$(( ( $(date +%s) - LAST ) / 3600 ))
+          LIMIT=48
+          if [ "$DOW" -eq 1 ]; then
+            LIMIT=80  # 월요일: 최신 커밋이 금요일 17:20인 것이 정상이라 주말 공백만큼 보정
+          fi
+          if [ "$AGE_H" -gt "$LIMIT" ]; then
+            add_fail "(c) mirror stale: last commit ${AGE_H}h ago (limit ${LIMIT}h) - mirror.yml or site data updates may be dead"
+          fi
+
+          # ---- 판정: 실패 목록이 있으면 진단을 출력으로 넘기고 실패 처리 ----
+          if [ -n "$FAILS" ]; then
+            {
+              echo "diagnosis<<DIAG_EOF"
+              printf '%s' "$FAILS"
+              echo ""
+              echo "DIAG_EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "WATCHDOG FAIL:"
+            printf '%s' "$FAILS"
+            exit 1
+          fi
+          echo "All checks passed (silent success)"
+
+      # 실패 시에만: 진단 Issue 생성. 이미 열린 watchdog Issue가 있으면 코멘트로 갱신(스팸 방지)
+      - name: Create or update diagnosis issue
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          DIAGNOSIS: ${{ steps.checks.outputs.diagnosis }}
+        with:
+          script: |
+            const diagnosis = (process.env.DIAGNOSIS || '').trim()
+              || '- (no diagnosis captured - see the failed step log)';
+            const kst = new Date(Date.now() + 9 * 3600 * 1000)
+              .toISOString().replace('T', ' ').slice(0, 16);
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const body = [
+              '## aikstockdata.com watchdog failure',
+              '',
+              `- Detected at (KST): ${kst}`,
+              `- Run: ${runUrl}`,
+              '',
+              '### Diagnosis',
+              diagnosis,
+              '',
+              '### Where to look',
+              '1. Cloud PC scheduled tasks (KST 10:00 / 16:00 pipeline) - did they run and deploy?',
+              '2. Cloudflare Worker / custom domain (aikstockdata.com) status',
+              '3. mirror.yml workflow runs in this repo (Actions tab)',
+              '',
+              '_Note: on a Korean market holiday, check (a) is expected to fail (false positive)._',
+            ].join('\n');
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'watchdog',
+              per_page: 1,
+            });
+            if (open.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[watchdog] site check failed (${kst} KST)`,
+                body,
+                labels: ['watchdog'],
+              });
+            }
+
+      # 실패 시에만 + 리포 시크릿 2종이 모두 있을 때만 텔레그램 시도. 없으면 Issue만.
+      # ★공개 채널 ID 하드코딩 금지 — 반드시 관리자 개인 chat_id 시크릿만 사용한다.
+      - name: Telegram alert (only if admin secrets exist)
+        if: failure()
+        shell: bash
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          DIAGNOSIS: ${{ steps.checks.outputs.diagnosis }}
+        run: |
+          if [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
+            echo "Telegram secrets not set - issue only"
+            exit 0
+          fi
+          TEXT=$(printf '[watchdog] aikstockdata.com check FAILED (KST %s)\n%s\nhttps://github.com/%s/issues' \
+            "$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')" \
+            "${DIAGNOSIS:-see GitHub issue}" \
+            "${GITHUB_REPOSITORY}")
+          curl -fsS --max-time 20 "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TG_CHAT}" \
+            --data-urlencode "text=${TEXT}" > /dev/null \
+            || echo "telegram send failed (non-fatal)"
