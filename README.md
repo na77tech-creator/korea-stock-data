@@ -1,36 +1,22 @@
-# Korea Stock Data Center — Daily KOSPI/KOSDAQ Dataset for AI
+# Korea Stock Data Center (aikstockdata.com)
 
-> **Korea Stock Data Center** is a free, AI-readable data source for the Korean stock market. Every trading day it automatically collects prices, fundamentals, and analyst consensus estimates for top KOSPI/KOSDAQ companies by market cap, and publishes them as date-stamped CSV/JSON. Built for machine consumption — structured endpoints (`/data/latest.json`) and an `/llms.txt` manifest let LLMs and agents ingest the dataset directly. No scraping, no API keys. Not investment advice; informational purposes only.
+> **Notice (2026-07-19): Data mirroring is suspended for license compliance review.**
+>
+> The upstream data source (Korea Investment & Securities OpenAPI) does not permit
+> third-party redistribution of raw market quote data. All previously mirrored data
+> files have been removed from this repository, and the daily mirror workflow is
+> suspended. The site is being rebuilt around self-computed analytical indicators
+> (rankings, grades, scores) and public-source data (DART filings).
 
-**Website**: https://aikstockdata.com
+**Website**: https://aikstockdata.com — 한국주식 분석 지표 플랫폼 (정비 중)
 
-한국주식(KOSPI·KOSDAQ) 시가총액 상위 종목의 시세·재무·컨센서스 추정치를 **매 거래일 오전 10시·오후 4시(KST) 자동 수집**해 무료 공개합니다. 로그인·API키·크롤링 불필요.
+## 공지
 
-## Data endpoints (live site)
+- 원시 시세 데이터(CSV/JSON)의 공개 제공 및 본 저장소를 통한 미러링은 중단되었습니다.
+- 이 저장소는 사이트 상태 감시(watchdog) 용도로만 유지됩니다.
+- 진행 상황: https://aikstockdata.com/notices.html
 
-| URL | Description |
-|---|---|
-| `https://aikstockdata.com/data/latest.json` | Latest snapshot — self-describing (units, field definitions, English aliases, disclaimer) |
-| `https://aikstockdata.com/data/top50.json` | Lightweight — top 50 by market cap + top 50 by estimated growth |
-| `https://aikstockdata.com/data/index.json` | Date index of historical CSV snapshots (time-series entry point) |
-| `https://aikstockdata.com/data/universe_YYYYMMDD.csv` | Full daily CSV for a given trading day |
-| `https://aikstockdata.com/llms.txt` | LLM manifest — how AI agents should read this site |
-| `https://aikstockdata.com/feed.xml` | RSS feed of daily updates |
+## Disclaimer
 
-## Fields
-
-Price, market cap, shares outstanding, PER, PBR, forward EPS, forward PER, estimated operating-income YoY growth, quarterly operating-income YoY, analyst rating. Prices in KRW, market cap in 100M KRW. `null` means data not provided (not zero). English field aliases are inside `latest.json`.
-
-## Use with AI
-
-Paste a data URL into ChatGPT / Claude / Gemini and ask, e.g.:
-> "Read this JSON and list stocks with forward PER under 15 and estimated operating-income growth over 20%, as a table."
-> https://aikstockdata.com/data/latest.json
-
-See the prompt guide: https://aikstockdata.com/ai.html
-
-## Source & License
-
-Data source: Korea Investment & Securities (한국투자증권) OpenAPI. Free to use; please credit "Korea Stock Data Center (aikstockdata.com)". Not investment advice.
-
-Keywords: Korean stock data, KOSPI KOSDAQ dataset, stock screening data for AI, forward PER, analyst consensus, 한국주식 데이터, 종목 추천 데이터, AI 주식 분석.
+본 사이트·저장소의 정보는 투자 권유가 아니며, 특정 종목의 매수·매도를 추천하지 않습니다.
+Not investment advice.

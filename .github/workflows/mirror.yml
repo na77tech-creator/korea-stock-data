@@ -1,36 +1,19 @@
-name: Daily data mirror
+# [SUSPENDED 2026-07-19] Daily data mirror — suspended for license compliance review.
+# The upstream source (Korea Investment & Securities OpenAPI) does not permit
+# third-party redistribution of market quote data. Mirroring is stopped until
+# the site's public data layer is rebuilt with licensed/derived indicators only.
+# Do NOT re-enable the schedule without completing that review.
+
+name: Daily data mirror (suspended)
 
 on:
-  schedule:
-    - cron: "20 8 * * 1-5" # 17:20 KST, Mon-Fri
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  mirror:
+  suspended:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Fetch latest data from site
-        run: |       
-          BASE="https://aikstockdata.com"
-          TODAY=$(TZ=Asia/Seoul date +%Y%m%d)
-          mkdir -p data/csv
-          curl -fsS "$BASE/data/latest.json" -o data/latest.json
-          curl -fsS "$BASE/data/universe_${TODAY}.csv" -o "data/csv/universe_${TODAY}.csv" \
-            || echo "No CSV for ${TODAY} (market holiday?) — skipping"
-
-      - name: Commit if changed
+      - name: Suspended notice
         run: |
-          git config user.name "data-mirror-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "data: $(TZ=Asia/Seoul date +%Y-%m-%d) daily mirror"
-            git push
-          fi
+          echo "Mirroring is suspended for license compliance review (2026-07-19)."
+          echo "No data is fetched or committed."

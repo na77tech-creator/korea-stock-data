@@ -46,36 +46,35 @@ jobs:
           FAILS=""
           add_fail() { FAILS="${FAILS}- $1"$'\n'; }
 
-          # ---- (a) 라이브 latest.json 의 기준일 == KST 오늘 ----
-          if curl -fsS --max-time 60 --retry 2 "$BASE/data/latest.json" -o /tmp/latest.json; then
-            KIJUN=$(python3 -c "import json; print(json.load(open('/tmp/latest.json')).get('기준일',''))" 2>/dev/null || echo "PARSE_ERROR")
-            if [ "$KIJUN" = "PARSE_ERROR" ] || [ -z "$KIJUN" ]; then
-              add_fail "(a) latest.json JSON parse failed or '기준일' field missing"
+          # [2026-07-19 법률 준수 재편] 데이터 URL(/data/*)은 인증 게이트(410)로 차단됨 —
+          # 파수꾼은 공개 페이지의 기준시각 메타(data-baseline-date)로 신선도를 판정한다.
+          # 미러(mirror.yml)는 중단됐으므로 (c) 신선도 검사는 폐지.
+
+          # ---- (a) 홈 페이지의 기준일 메타 == KST 오늘 ----
+          if curl -fsSL --max-time 60 --retry 2 "$BASE/" -o /tmp/home.html; then
+            KIJUN=$(grep -o 'name="data-baseline-date" content="[^"]*"' /tmp/home.html | head -1 | sed 's/.*content="//;s/"//')
+            if [ -z "$KIJUN" ]; then
+              add_fail "(a) homepage baseline-date meta missing - build may be broken"
             elif [ "$KIJUN" != "$TODAY_DOT" ] && [ "$KIJUN" != "$TODAY_DASH" ]; then
-              add_fail "(a) latest.json 기준일='$KIJUN' != KST today '$TODAY_DOT' - pipeline may be dead / serving stale data (KR market holiday would be a false positive)"
+              add_fail "(a) homepage baseline-date='$KIJUN' != KST today '$TODAY_DOT' - pipeline may be dead / serving stale build (KR market holiday would be a false positive)"
             fi
           else
-            add_fail "(a) latest.json fetch failed: $BASE/data/latest.json"
+            add_fail "(a) homepage fetch failed: $BASE/"
           fi
 
-          # ---- (b) 핵심 엔드포인트 5개 HTTP 200 ----
+          # ---- (b) 핵심 공개 페이지 HTTP 200 (데이터 URL 제외) ----
           # .html 경로는 Workers Assets가 307로 확장자를 벗기므로 -L로 최종 상태를 본다
-          for u in "/" "/data/latest.json" "/ai" "/watch" "/sitemap.xml"; do
+          for u in "/" "/watch" "/notices" "/sitemap.xml"; do
             CODE=$(curl -sSL -o /dev/null -w "%{http_code}" --max-time 60 --retry 2 "$BASE$u" || echo "000")
             if [ "$CODE" != "200" ]; then
               add_fail "(b) endpoint $u -> HTTP $CODE"
             fi
           done
 
-          # ---- (c) 미러 최신 커밋 신선도 (mirror.yml 은 평일 17:20 KST 커밋) ----
-          LAST=$(git log -1 --format=%ct)
-          AGE_H=$(( ( $(date +%s) - LAST ) / 3600 ))
-          LIMIT=48
-          if [ "$DOW" -eq 1 ]; then
-            LIMIT=80  # 월요일: 최신 커밋이 금요일 17:20인 것이 정상이라 주말 공백만큼 보정
-          fi
-          if [ "$AGE_H" -gt "$LIMIT" ]; then
-            add_fail "(c) mirror stale: last commit ${AGE_H}h ago (limit ${LIMIT}h) - mirror.yml or site data updates may be dead"
+          # ---- (c) 데이터 게이트 실효성 — /data/latest.json 이 무인증으로 200이면 안 됨 ----
+          GCODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 "$BASE/data/latest.json" || echo "000")
+          if [ "$GCODE" = "200" ]; then
+            add_fail "(c) DATA GATE BREACH: /data/latest.json returned 200 without auth (expected 410) - compliance gate is down"
           fi
 
           # ---- 판정: 실패 목록이 있으면 진단을 출력으로 넘기고 실패 처리 ----
@@ -117,7 +116,7 @@ jobs:
               '### Where to look',
               '1. Cloud PC scheduled tasks (KST 10:00 / 16:00 pipeline) - did they run and deploy?',
               '2. Cloudflare Worker / custom domain (aikstockdata.com) status',
-              '3. mirror.yml workflow runs in this repo (Actions tab)',
+              '3. If (c) DATA GATE BREACH: worker.js auth gate / run_worker_first deploy config',
               '',
               '_Note: on a Korean market holiday, check (a) is expected to fail (false positive)._',
             ].join('\n');

@@ -1,15 +1,7 @@
-Data License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+﻿License status (2026-07-19): under review.
 
-The datasets in this repository (data/) are licensed under CC BY 4.0.
-You are free to share and adapt the data for any purpose, including
-commercial use, provided you give appropriate credit to:
+Previous data-license statements (CC BY 4.0) are withdrawn. The upstream market
+data source does not permit third-party redistribution; no redistribution or
+reuse license is granted for any data previously contained in this repository.
 
-  "한국주식 데이터센터 (Korea Stock Data Center)"
-  https://wispy-truth-8d32.na4tech.workers.dev
-
-Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
-
-Disclaimer: The data is provided "as is", for informational purposes only,
-without warranty of any kind. It does not constitute investment advice.
-All investment decisions and their outcomes are the sole responsibility
-of the user.
+Code in this repository (workflow files) may be viewed for reference.
