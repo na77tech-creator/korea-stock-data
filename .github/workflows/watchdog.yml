@@ -7,10 +7,16 @@ name: Site watchdog
 
 on:
   schedule:
-    # KST 10:40 / 16:40 (평일) = 10:00/16:00 수집 파이프라인 종료 40분 뒤 점검
-    # KST=UTC+9 이므로 이 시각대에선 UTC 요일 == KST 요일 (1-5 = 월-금)
+    # ★[2026-09-08] 이 일정이 낡아서 **한 달 반 동안 매일 거짓 경보**를 냈다.
+    #   원래 주석: "10:00/16:00 수집 파이프라인 종료 40분 뒤". 그 뒤 발행이 **18:10** 으로
+    #   옮겨졌는데 파수꾼은 안 옮겨졌다. 그래서 (a) 기준일 검사가 **발행 전에** 돌았고,
+    #   홈은 늘 어제 날짜를 들고 있어 매번 실패했다(이슈 #1 에 댓글 38개가 그 흔적이다).
+    #   늑대가 매일 나타나면 진짜 늑대를 못 본다 — 실제로 09-04·09-07 발행 결번이
+    #   이 소음에 묻혔다.
+    # KST 10:40 (평일) — 가용성만 본다((b)(c)). 발행 전이라 신선도는 보지 않는다.
     - cron: "40 1 * * 1-5"
-    - cron: "40 7 * * 1-5"
+    # KST 18:50 (평일) — 발행(18:10) 40분 뒤. 여기서 신선도((a))까지 본다.
+    - cron: "50 9 * * 1-5"
   workflow_dispatch:
 
 # 실패 진단 Issue 생성을 위해 기본 GITHUB_TOKEN에 issues:write 명시
@@ -51,12 +57,20 @@ jobs:
           # 미러(mirror.yml)는 중단됐으므로 (c) 신선도 검사는 폐지.
 
           # ---- (a) 홈 페이지의 기준일 메타 == KST 오늘 ----
-          if curl -fsSL --max-time 60 --retry 2 "$BASE/" -o /tmp/home.html; then
+          # ★[2026-09-08] **발행(18:10) 뒤에만** 이 검사를 한다. 크론 문자열로 가르지 않고
+          #   실행 시각(KST)으로 가른다 — 수동 실행(workflow_dispatch)에서도 맞아야 하고,
+          #   크론을 또 옮길 때 이 조건을 같이 고치는 걸 잊으면 같은 사고가 반복된다.
+          HOUR=$(TZ=Asia/Seoul date +%H)
+          if [ "$HOUR" -lt 18 ]; then
+            echo "(a) skipped - KST ${HOUR}시, 발행(18:10) 전이라 기준일은 어제가 정상이다"
+          elif curl -fsSL --max-time 60 --retry 2 "$BASE/" -o /tmp/home.html; then
             KIJUN=$(grep -o 'name="data-baseline-date" content="[^"]*"' /tmp/home.html | head -1 | sed 's/.*content="//;s/"//')
             if [ -z "$KIJUN" ]; then
               add_fail "(a) homepage baseline-date meta missing - build may be broken"
             elif [ "$KIJUN" != "$TODAY_DOT" ] && [ "$KIJUN" != "$TODAY_DASH" ]; then
-              add_fail "(a) homepage baseline-date='$KIJUN' != KST today '$TODAY_DOT' - pipeline may be dead / serving stale build (KR market holiday would be a false positive)"
+              KDASH=$(printf '%s' "$KIJUN" | tr '.' '-')
+              AGE=$(( ( $(TZ=Asia/Seoul date +%s) - $(date -u -d "$KDASH" +%s 2>/dev/null || echo 0) ) / 86400 ))
+              add_fail "(a) homepage baseline-date='$KIJUN' != KST today '$TODAY_DOT' (about ${AGE} day(s) stale) - pipeline may be dead / serving stale build (KR market holiday would be a false positive)"
             fi
           else
             add_fail "(a) homepage fetch failed: $BASE/"
