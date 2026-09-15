@@ -1,12 +1,12 @@
 # 한국주식데이터 (aikstockdata.com) — watchdog repository
 
-> **Notice (2026-09-08): the 2026-07-19 notice below was two months out of date and has
-> been replaced.** The site moved to Korean public-sector data on 2026-07-22. Raw market
-> quotes are no longer sourced from a brokerage API, and the data **is** freely
-> redistributable with attribution. See the licence line below.
+> **Notice (2026-09-15): terms of use changed on 2026-09-14.** The site's published data is now
+> under `aiksd-public-1.1`: Non-commercial use with attribution; commercial redistribution is not permitted. The upstream FSC market-price data
+> became KOGL Type 4 (attribution · non-commercial · no derivatives) on 2026-09-09, so the earlier
+> 2026-09-08 notice that stood here no longer applies.
 
 **Website**: https://aikstockdata.com — KOSPI·KOSDAQ·KONEX 전 종목의 확정 종가(T+1)·DART
-공시·실적을 매 거래일 저녁 JSON·CSV 로 발행합니다. 가입도, API 키도, 요청 제한도 없습니다.
+공시·실적을 매 거래일 저녁 JSON·CSV 로 발행합니다. 가입도 API 키도 없고, 일반적인 사용 범위에서 별도 쿼터가 없습니다.
 
 - 데이터 카탈로그: https://aikstockdata.com/data/public/index.json
 - 사람이 읽는 안내: https://aikstockdata.com/downloads · https://aikstockdata.com/datasets
@@ -24,12 +24,12 @@
 
 ## 이용 조건
 
-본 사이트가 공개하는 시세·공시·랭킹 데이터(/data/public/*)는 공공데이터(금융감독원 DART·금융위원회 공공데이터포털)를 가공한 2차 저작물로, 출처를 표기하면 영리 목적을 포함해 자유롭게 복제·재배포·인용할 수 있습니다. 다만 증권사 실시간 시세 등 원천의 실시간 정보를 그대로 재배포하는 것은 허용되지 않습니다.
+본 사이트가 공개하는 데이터(/data/public/*)는 출처를 표기하면 비영리 목적으로 인용·이용할 수 있습니다. 상업적(영리) 목적의 재배포는 어떤 경우에도 허용하지 않습니다. 시세(종가·거래량·시가총액 등)는 금융위원회 공공데이터포털이 원천이며 원천의 이용허락범위(공공누리 제4유형: 출처표시·상업적 이용금지·변경금지)와 제공기관 안내도 함께 따라야 하고, 공시 내용은 금융감독원 전자공시시스템(DART)의 이용 조건을 따릅니다. 다만 증권사 실시간 시세 등 원천의 실시간 정보를 그대로 재배포하는 것은 허용되지 않습니다.
 
     자료: 한국주식데이터(aikstockdata.com) — 원천: 금융감독원 DART · 금융위원회 공공데이터포털
     Source: aikstockdata (aikstockdata.com) — original data: FSS DART, FSC open data portal, Republic of Korea
 
-라이선스 정본: https://aikstockdata.com/licenses/aiksd-public-1.0.txt
+라이선스 정본: https://aikstockdata.com/licenses/aiksd-public-1.1.txt (2026-09-14부터 · 이전 판 1.0 은 기록으로만 남아 있습니다)
 
 ## Disclaimer
 
